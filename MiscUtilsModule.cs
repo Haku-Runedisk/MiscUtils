@@ -31,6 +31,9 @@ namespace Celeste.Mod.MiscUtils {
             On.Celeste.OverworldLoader.ctor += OverworldLoader_ctor;
 
             // TODO: apply any hooks that should always be active
+            //On.Celeste.Celeste.Update += UtilityMethods.Update;
+            Everest.Events.Player.OnSpawn += OnPlayerSpawn;
+            On.Celeste.Level.Update += HookLevelUpdate;
         }
 
         public override void Unload() {
@@ -38,27 +41,35 @@ namespace Celeste.Mod.MiscUtils {
             On.Celeste.OverworldLoader.ctor -= OverworldLoader_ctor;
 
             // TODO: unapply any hooks applied in Load()
+            Everest.Events.Player.OnSpawn -= OnPlayerSpawn;
+            On.Celeste.Level.Update -= HookLevelUpdate;
         }
 
         public void LoadBeforeLevel() {
             //On.Celeste.Mod.AssetReloadHelper.ReloadLevel += AssetReloadHelper_ReloadLevel;
 
             // TODO: apply any hooks that should only be active while a level is loaded
-            if (Settings.Enabled) {
-                //On.Celeste.Celeste.Update += UtilityMethods.Update;
-                Everest.Events.Player.OnSpawn += OnPlayerSpawn;
-            }
-            //Scene scene = Engine.Scene;
-            //if (scene is Level level) {
-            //    UtilityMethods.player = level.Tracker.GetEntity<Player>();
-            //}
         }
 
         public void UnloadAfterLevel() {
             //On.Celeste.Mod.AssetReloadHelper.ReloadLevel -= AssetReloadHelper_ReloadLevel;
 
             // TODO: unapply any hooks applied in LoadBeforeLevel()
-            Everest.Events.Player.OnSpawn -= OnPlayerSpawn;
+        }
+
+        private void HookLevelUpdate(On.Celeste.Level.orig_Update orig, Level self) {
+            orig(self);
+
+            if (Settings.Enabled) {
+                double prevXDrift = Q.XDrift;
+                double prevYDrift = Q.YDrift;
+                Q.XDrift = Q.GetXDrift();
+                Q.YDrift = Q.GetYDrift();
+                Q.XDriftDiff = Q.XDrift - prevXDrift;
+                Q.YDriftDiff = Q.YDrift - prevYDrift;
+                Q.XDriftStr = Q.GetXDriftStr();
+                Q.YDriftStr = Q.GetYDriftStr();
+            }
         }
 
         //private void AssetReloadHelper_ReloadLevel(On.Celeste.Mod.AssetReloadHelper.orig_ReloadLevel orig) {
@@ -78,9 +89,12 @@ namespace Celeste.Mod.MiscUtils {
             orig(self, session, startposition);
             LoadBeforeLevel();
         }
+        public override void Initialize() {
+            Q.Initialize();
+        }
 
         private void OnPlayerSpawn(Player player) {
-            UtilityMethods.player = player;
+            Q.player = player;
         }
     }
 }
