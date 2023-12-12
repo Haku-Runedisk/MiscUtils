@@ -12,6 +12,7 @@ using System.Collections.Generic;
 
 namespace Celeste.Mod.MiscUtils {
     public static class Q {
+        public static MiscUtilsModuleSettings Settings => MiscUtilsModule.Settings;
         public static Player player = null;
         public static double realDeltaTime = 0.0166666992008686065673828125d;
         public static double intendedDeltaTime = 1d / 60d;
@@ -42,9 +43,17 @@ namespace Celeste.Mod.MiscUtils {
         public static double YDrift { get; internal set; }
         public static double XDriftDiff { get; internal set; }
         public static double YDriftDiff { get; internal set; }
-        public static string XDriftStr { get; internal set; }
-        public static string YDriftStr { get; internal set; }
 
+        public static string CustomInfoStr() {
+            List<string> res = new();
+            if (Settings.Enabled) {
+                if (Settings.ShowRoundingError) {
+                    res.Add($"reX:{GetXDriftStr()}");
+                    res.Add($"reY:{GetYDriftStr()}");
+                }
+            }
+            return string.Join("\n", res);
+        }
         public static double GetXDrift() {
             double res = player.movementCounter.X + 0.5d;
             res = GetDrift(res, xGrid) / (realDeltaTime - intendedDeltaTime);

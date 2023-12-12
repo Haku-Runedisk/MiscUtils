@@ -2,9 +2,13 @@
 using Microsoft.Xna.Framework;
 using Monocle;
 using MonoMod.ModInterop;
+using MonoMod.RuntimeDetour;
 
 namespace Celeste.Mod.MiscUtils {
     public class MiscUtilsModule : EverestModule {
+        private bool WasPaused;
+        private bool FrozenEngine => Engine.FreezeTimer > 0f;
+
         public static MiscUtilsModule Instance { get; private set; }
 
         public override Type SettingsType => typeof(MiscUtilsModuleSettings);
@@ -34,6 +38,9 @@ namespace Celeste.Mod.MiscUtils {
             //On.Celeste.Celeste.Update += UtilityMethods.Update;
             Everest.Events.Player.OnSpawn += OnPlayerSpawn;
             On.Celeste.Level.Update += HookLevelUpdate;
+            using (new DetourContext { Before = new() { "CelesteTAS" } }) {
+                On.Monocle.Scene.AfterUpdate += HookSceneAfterUpdate;
+            }
         }
 
         public override void Unload() {
@@ -43,6 +50,22 @@ namespace Celeste.Mod.MiscUtils {
             // TODO: unapply any hooks applied in Load()
             Everest.Events.Player.OnSpawn -= OnPlayerSpawn;
             On.Celeste.Level.Update -= HookLevelUpdate;
+            On.Monocle.Scene.AfterUpdate -= HookSceneAfterUpdate;
+        }
+
+        private void HookSceneAfterUpdate(On.Monocle.Scene.orig_AfterUpdate orig, Monocle.Scene self) {
+            orig(self);
+
+            if (Settings.Enabled) {
+                if (self is Level level && !level.wasPaused) {
+                    double prevXDrift = Q.XDrift;
+                    double prevYDrift = Q.YDrift;
+                    Q.XDrift = Q.GetXDrift();
+                    Q.YDrift = Q.GetYDrift();
+                    Q.XDriftDiff = Q.XDrift - prevXDrift;
+                    Q.YDriftDiff = Q.YDrift - prevYDrift;
+                }
+            }
         }
 
         public void LoadBeforeLevel() {
@@ -58,17 +81,20 @@ namespace Celeste.Mod.MiscUtils {
         }
 
         private void HookLevelUpdate(On.Celeste.Level.orig_Update orig, Level self) {
+            if (Settings.Enabled) {
+                //WasPaused = Engine.Scene is Level level && Engine.FreezeTimer <= 0f && level.unpauseTimer <= 0f && !level.FrozenOrPaused && !level.PauseMainMenuOpen;
+                WasPaused = Engine.Scene is Level level && Engine.FreezeTimer <= 0f && !level.wasPaused;
+            }
+
             orig(self);
 
             if (Settings.Enabled) {
-                double prevXDrift = Q.XDrift;
-                double prevYDrift = Q.YDrift;
-                Q.XDrift = Q.GetXDrift();
-                Q.YDrift = Q.GetYDrift();
-                Q.XDriftDiff = Q.XDrift - prevXDrift;
-                Q.YDriftDiff = Q.YDrift - prevYDrift;
-                Q.XDriftStr = Q.GetXDriftStr();
-                Q.YDriftStr = Q.GetYDriftStr();
+                if (Settings.ShowRoundingErrorBB.Pressed) {
+                    Settings.ShowRoundingError ^= true;
+                }
+                //if (true || self.GetType() == typeof(Level)) {
+                if (WasPaused) {
+                }
             }
         }
 
