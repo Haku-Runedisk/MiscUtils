@@ -46,12 +46,12 @@ namespace Celeste.Mod.MiscUtils {
         public static string YDriftStr { get; internal set; }
 
         public static double GetXDrift() {
-            double res = player.PositionRemainder.X + 0.5d;
+            double res = player.movementCounter.X + 0.5d;
             res = GetDrift(res, xGrid) / (realDeltaTime - intendedDeltaTime);
             return res;
         }
         public static double GetYDrift() {
-            double res = player.PositionRemainder.Y + 0.5d;
+            double res = player.movementCounter.Y + 0.5d;
             res = GetDrift(res, yGrid) / (realDeltaTime - intendedDeltaTime);
             return res;
         }
