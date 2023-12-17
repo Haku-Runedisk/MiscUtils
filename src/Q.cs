@@ -9,11 +9,13 @@ using System.Collections;
 using System.Reflection;
 using System.Numerics;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+using Vector2 = Microsoft.Xna.Framework.Vector2;
 
 namespace Celeste.Mod.MiscUtils {
     public static class Q {
         public static MiscUtilsModuleSettings Settings => MiscUtilsModule.Settings;
-        public static Player player = null;
+        public static Player player => Engine.Scene.Tracker.GetEntity<Player>();
         public static double realDeltaTime = 0.0166666992008686065673828125d;
         public static double intendedDeltaTime = 1d / 60d;
         public static double deltaTimeRatio = realDeltaTime / intendedDeltaTime;
@@ -43,16 +45,25 @@ namespace Celeste.Mod.MiscUtils {
         public static double YDrift { get; internal set; }
         public static double XDriftDiff { get; internal set; }
         public static double YDriftDiff { get; internal set; }
+        public static Vector2 PrevSpeed { get; internal set; }
+        public static Vector2 Accel { get; internal set; }
 
         public static string CustomInfoStr() {
-            List<string> res = new();
-            if (Settings.Enabled) {
-                if (Settings.ShowRoundingError) {
-                    res.Add($"reX:{GetXDriftStr()}");
-                    res.Add($"reY:{GetYDriftStr()}");
+            string res2;
+            try {
+                List<string> res = new();
+                if (Settings.Enabled) {
+                    res.Add($"a:{Accel.X:0.00}");
+                    if (Settings.ShowRoundingError) {
+                        res.Add($"reX:{GetXDriftStr()}");
+                        res.Add($"reY:{GetYDriftStr()}");
+                    }
                 }
+                res2 = string.Join("\n", res);
+            } catch (Exception e) {
+                res2 = "exception occurred:\n" + e;
             }
-            return string.Join("\n", res);
+            return res2;
         }
         public static double GetXDrift() {
             double res = player.movementCounter.X + 0.5d;
@@ -170,11 +181,20 @@ namespace Celeste.Mod.MiscUtils {
             return res;
         }
 
-        public static void Update() {
-            // Scene scene = Engine.Scene;
-            // if (scene is Level level) {
-            //     player = level.Tracker.GetEntity<Player>();
-            // }
+        public static void HookSceneAfterUpdate(Scene self) {
+            if (self is Level level && !level.wasPaused) {
+                if (player != null) {
+                    Accel = player.Speed - PrevSpeed;
+                    PrevSpeed = player.Speed;
+
+                    double prevXDrift = XDrift;
+                    double prevYDrift = YDrift;
+                    XDrift = GetXDrift();
+                    YDrift = GetYDrift();
+                    XDriftDiff = XDrift - prevXDrift;
+                    YDriftDiff = YDrift - prevYDrift;
+                }
+            }
         }
         public static void Initialize() {
             List<BigInteger> xGCD = FractionalGCD(xSpeedIncrements);
@@ -187,15 +207,15 @@ namespace Celeste.Mod.MiscUtils {
         }
 
         internal static string GetXDriftStr() {
-            return GetDriftStr(Q.XDrift, Q.XDriftDiff);
+            return GetDriftStr(XDrift, XDriftDiff);
         }
 
         internal static string GetYDriftStr() {
-            return GetDriftStr(Q.YDrift, Q.YDriftDiff);
+            return GetDriftStr(YDrift, YDriftDiff);
         }
 
         private static string GetDriftStr(double drift, double driftDiff) {
-            return $"{drift.ToString("0.00")},{driftDiff.ToString("0.00")}";
+            return $"{drift:0.00},{driftDiff:0.00}";
         }
     }
 }

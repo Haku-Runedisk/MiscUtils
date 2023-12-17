@@ -7,6 +7,8 @@ using MonoMod.RuntimeDetour;
 namespace Celeste.Mod.MiscUtils {
     public class MiscUtilsModule : EverestModule {
         private bool WasPaused;
+        private int counter;
+
         private bool FrozenEngine => Engine.FreezeTimer > 0f;
 
         public static MiscUtilsModule Instance { get; private set; }
@@ -29,6 +31,7 @@ namespace Celeste.Mod.MiscUtils {
         }
 
         public override void Load() {
+            //Engine.Commands?.Log("loaded MiscUtils");
             //typeof(MiscUtilsExports).ModInterop(); // TODO: delete this line if you do not need to export any functions
 
             On.Celeste.LevelLoader.ctor += LevelLoader_ctor;
@@ -36,35 +39,47 @@ namespace Celeste.Mod.MiscUtils {
 
             // TODO: apply any hooks that should always be active
             //On.Celeste.Celeste.Update += UtilityMethods.Update;
-            Everest.Events.Player.OnSpawn += OnPlayerSpawn;
             On.Celeste.Level.Update += HookLevelUpdate;
+            Everest.Events.Player.OnSpawn += OnPlayerSpawn;
             using (new DetourContext { Before = new() { "CelesteTAS" } }) {
                 On.Monocle.Scene.AfterUpdate += HookSceneAfterUpdate;
+            }
+            using (new DetourContext { After = new() { "CelesteTAS" } }) {
+                On.Monocle.MInput.Update += HookMInputUpdate;
             }
         }
 
         public override void Unload() {
+            //Engine.Commands?.Log("unloaded MiscUtils");
             On.Celeste.LevelLoader.ctor -= LevelLoader_ctor;
             On.Celeste.OverworldLoader.ctor -= OverworldLoader_ctor;
 
             // TODO: unapply any hooks applied in Load()
-            Everest.Events.Player.OnSpawn -= OnPlayerSpawn;
             On.Celeste.Level.Update -= HookLevelUpdate;
+            Everest.Events.Player.OnSpawn -= OnPlayerSpawn;
             On.Monocle.Scene.AfterUpdate -= HookSceneAfterUpdate;
+            On.Monocle.MInput.Update -= HookMInputUpdate;
+        }
+
+        private void HookMInputUpdate(On.Monocle.MInput.orig_Update orig) {
+            if (Settings.Enabled) {
+                if (Engine.Scene is Level level) {
+                    //Engine.Commands.Log("checking press");
+                    if (Settings.ShowRoundingErrorBB.Pressed) {
+                        //Engine.Commands.Log("toggle");
+                        Settings.ShowRoundingError ^= true;
+                    }
+                }
+            }
+
+            orig();
         }
 
         private void HookSceneAfterUpdate(On.Monocle.Scene.orig_AfterUpdate orig, Monocle.Scene self) {
             orig(self);
 
             if (Settings.Enabled) {
-                if (self is Level level && !level.wasPaused) {
-                    double prevXDrift = Q.XDrift;
-                    double prevYDrift = Q.YDrift;
-                    Q.XDrift = Q.GetXDrift();
-                    Q.YDrift = Q.GetYDrift();
-                    Q.XDriftDiff = Q.XDrift - prevXDrift;
-                    Q.YDriftDiff = Q.YDrift - prevYDrift;
-                }
+                Q.HookSceneAfterUpdate(self);
             }
         }
 
@@ -88,14 +103,6 @@ namespace Celeste.Mod.MiscUtils {
 
             orig(self);
 
-            if (Settings.Enabled) {
-                if (Settings.ShowRoundingErrorBB.Pressed) {
-                    Settings.ShowRoundingError ^= true;
-                }
-                //if (true || self.GetType() == typeof(Level)) {
-                if (WasPaused) {
-                }
-            }
         }
 
         //private void AssetReloadHelper_ReloadLevel(On.Celeste.Mod.AssetReloadHelper.orig_ReloadLevel orig) {
@@ -120,7 +127,6 @@ namespace Celeste.Mod.MiscUtils {
         }
 
         private void OnPlayerSpawn(Player player) {
-            Q.player = player;
         }
     }
 }
