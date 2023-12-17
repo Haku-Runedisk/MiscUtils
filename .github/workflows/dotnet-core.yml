@@ -39,3 +39,4 @@ jobs:
         path: |
           everest.yaml
           bin/MiscUtils.dll
+          bin/MiscUtils.pdb
