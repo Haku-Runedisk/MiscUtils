@@ -1,1 +1,3 @@
 miscutils_show_rounding_error=Show Rounding Error
+miscutils_show_main_custom_info=Show Main Info
+miscutils_show_stunning_info=Show Stunning Info

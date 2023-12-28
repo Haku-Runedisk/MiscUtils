@@ -1,13 +1,14 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 using Monocle;
+using MonoMod.Cil;
 using MonoMod.ModInterop;
 using MonoMod.RuntimeDetour;
 
 namespace Celeste.Mod.MiscUtils {
     public class MiscUtilsModule : EverestModule {
         private bool WasPaused;
-        private int counter;
+        //private int counter;
 
         private bool FrozenEngine => Engine.FreezeTimer > 0f;
 
@@ -44,9 +45,11 @@ namespace Celeste.Mod.MiscUtils {
             using (new DetourContext { Before = new() { "CelesteTAS" } }) {
                 On.Monocle.Scene.AfterUpdate += HookSceneAfterUpdate;
             }
-            using (new DetourContext { After = new() { "CelesteTAS" } }) {
+            using (new DetourContext { Before = new() { "CelesteTAS" } }) {
                 On.Monocle.MInput.Update += HookMInputUpdate;
             }
+
+            //IL.Celeste.Player.Update += Player_Update;
         }
 
         public override void Unload() {
@@ -60,6 +63,11 @@ namespace Celeste.Mod.MiscUtils {
             On.Monocle.Scene.AfterUpdate -= HookSceneAfterUpdate;
             On.Monocle.MInput.Update -= HookMInputUpdate;
         }
+
+        //private void Player_Update(MonoMod.Cil.ILContext il) {
+        //    ILCursor cursor = new ILCursor(il);
+        //    cursor.EmitDelegate(() => Logger.Log(LogLevel.Debug, "test", "hello from lambda, this should trigger a warning"));
+        //}
 
         private void HookMInputUpdate(On.Monocle.MInput.orig_Update orig) {
             if (Settings.Enabled) {
