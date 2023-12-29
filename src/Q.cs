@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Vector2 = Microsoft.Xna.Framework.Vector2;
 using System.Linq;
+using Celeste.Mod.TASHelper.Module;
 
 namespace Celeste.Mod.MiscUtils {
     public static class Q {
@@ -42,6 +43,7 @@ namespace Celeste.Mod.MiscUtils {
             // misc
             "1",
         };
+        private static bool roomHasStunnableEntities;
 
         public static double XDrift { get; internal set; }
         public static double YDrift { get; internal set; }
@@ -49,22 +51,19 @@ namespace Celeste.Mod.MiscUtils {
         public static double YDriftDiff { get; internal set; }
         public static Vector2 PrevSpeed { get; internal set; }
         public static Vector2 Accel { get; internal set; }
-        public static bool ShowStunningInfo {
+        public static bool? EnableGraphicalStunningInfo {
             get {
-                if (Settings.ShowStunningInfo) {
-                    return true;
-                }
                 switch (Settings.AutoShowStunningInfo) {
                     case AutoShowStunningInfoMode.None:
                         break;
                     case AutoShowStunningInfoMode.Room:
-                        return Engine.Scene.Tracker.Entities.Keys.Intersect(StunnableEntities).FirstOrDefault((type) => Engine.Scene.Tracker.Entities[type].Any()) != null;
+                        return roomHasStunnableEntities;
                     case AutoShowStunningInfoMode.Map:
                         break;
                     default:
                         break;
                 }
-                return Settings.ShowStunningInfo;
+                return null;
             }
         }
 
@@ -80,7 +79,7 @@ namespace Celeste.Mod.MiscUtils {
                 if (Settings.Enabled) {
                     if (Settings.ShowMainCustomInfo) {
                         if (player != null) {
-                            lines.Add($"a:{Accel.X:0.00},DashDir:{ValToCIString(player.DashDir, "f2")}");
+                            lines.Add($"DashDir:{ValToCIString(player.DashDir, "f2")},a:{Accel.X:0.00}");
                             lines.Add($"AutoJump:{FrameValToCIStr(player.AutoJumpTimer)},DAttack:{FrameValToCIStr(player.dashAttackTimer)}");
                             lines.Add($"ForceMoveX:{FrameValToCIStr(player.forceMoveXTimer)},JumpTimer:{FrameValToCIStr(player.varJumpTimer)}");
                         }
@@ -90,16 +89,27 @@ namespace Celeste.Mod.MiscUtils {
                             lines.Add(LineStr("Depth", player.Depth));
                         }
                     }
-                    if (ShowStunningInfo) {
+                    if (Settings.ShowStunningInfo) {
                         lines.Add(LineStr("TimeActive", Engine.Scene.TimeActive));
-                        lines.Add(LineStr("Cam", level.Camera.Position));
-                        lines.Add(LineStr("CamOfs", level.CameraOffset));
+                        lines.Add(LineStr("Cam", level.Camera.Position, "f5"));
+                        lines.Add(LineStr("CamOfs", level.CameraOffset, "f5"));
                     }
                     if (Settings.ShowRoundingError) {
                         lines.Add($"reX:{GetXDriftStr()}");
                         lines.Add($"reY:{GetYDriftStr()}");
                     }
                     if (Settings.ShowMainCustomInfo) {
+                        List<Entity> theos = level.Tracker.GetEntities<TheoCrystal>();
+                        foreach (TheoCrystal theoCrystal in theos) {
+                            lines.Add(LineStr("Theo", theoCrystal.ExactPosition));
+                            lines.Add(LineStr("TheoCantGrab", FrameValToCIStr(theoCrystal.Hold.cannotHoldTimer)));
+                        }
+                        if (level.CameraLockMode != Level.CameraLockModes.None) {
+                            lines.Add(LineStr("CameraLockMode", level.CameraLockMode));
+                        }
+                        if (level.Wind.LengthSquared() != 0f) {
+                            lines.Add(LineStr("Wind", level.Wind));
+                        }
                         if (Engine.TimeRate != 1f) {
                             lines.Add(LineStr("TimeRate", Engine.TimeRate));
                         }
@@ -110,7 +120,7 @@ namespace Celeste.Mod.MiscUtils {
                 }
                 res2 = string.Join("\n", lines);
             } catch (Exception e) {
-                res2 = "exception occurred:\n" + e;
+                res2 = "exception:\n" + e;
             }
             return res2;
         }
@@ -284,6 +294,12 @@ namespace Celeste.Mod.MiscUtils {
                     YDriftDiff = YDrift - prevYDrift;
                 }
             }
+            if (Settings.Enabled) {
+                if (EnableGraphicalStunningInfo != null) {
+                    TASHelperModule.Settings.LoadRangeMode = (bool)EnableGraphicalStunningInfo ? TASHelperSettings.LoadRangeModes.Both : TASHelperSettings.LoadRangeModes.Neither;
+                    TASHelperModule.Settings.UsingCameraTarget = (bool)EnableGraphicalStunningInfo;
+                }
+            }
         }
         public static void Initialize() {
             List<BigInteger> xGCD = FractionalGCD(xSpeedIncrements);
@@ -305,6 +321,20 @@ namespace Celeste.Mod.MiscUtils {
 
         private static string GetDriftStr(double drift, double driftDiff) {
             return $"{drift:0.00},{driftDiff:0.00}";
+        }
+
+        public static void Level_LoadLevel(On.Celeste.Level.orig_LoadLevel orig, Level self, Player.IntroTypes playerIntro, bool isFromLoader) {
+            roomHasStunnableEntities = false;
+
+            orig(self, playerIntro, isFromLoader);
+        }
+
+        public static void Entity_Added(On.Monocle.Entity.orig_Added orig, Entity self, Scene scene) {
+            orig(self, scene);
+
+            if (!roomHasStunnableEntities && TASHelper.Gameplay.Spinner.SpinnerCalculateHelper.HazardType(self) != null) {
+                roomHasStunnableEntities = true;
+            }
         }
 
         // Following 3 functions based on https://github.com/EverestAPI/CelesteTAS-EverestInterop/blob/0deeb0af3ec7e8a3adce4471702d9931274d0cac/CelesteTAS-EverestInterop/Source/TAS/GameInfo.cs#L497

@@ -31,6 +31,19 @@ namespace Celeste.Mod.MiscUtils {
 #endif
         }
 
+        public override void Unload() {
+            //Engine.Commands?.Log("unloaded MiscUtils");
+            On.Celeste.LevelLoader.ctor -= LevelLoader_ctor;
+            On.Celeste.OverworldLoader.ctor -= OverworldLoader_ctor;
+
+            // TODO: unapply any hooks applied in Load()
+            On.Celeste.Level.Update -= HookLevelUpdate;
+            On.Monocle.Entity.Added -= Q.Entity_Added;
+            Everest.Events.Player.OnSpawn -= OnPlayerSpawn;
+            On.Celeste.Level.LoadLevel -= Q.Level_LoadLevel;
+            On.Monocle.Scene.AfterUpdate -= HookSceneAfterUpdate;
+            On.Monocle.MInput.Update -= HookMInputUpdate;
+        }
         public override void Load() {
             //Engine.Commands?.Log("loaded MiscUtils");
             //typeof(MiscUtilsExports).ModInterop(); // TODO: delete this line if you do not need to export any functions
@@ -41,27 +54,17 @@ namespace Celeste.Mod.MiscUtils {
             // TODO: apply any hooks that should always be active
             //On.Celeste.Celeste.Update += UtilityMethods.Update;
             On.Celeste.Level.Update += HookLevelUpdate;
+            On.Monocle.Entity.Added += Q.Entity_Added;
             Everest.Events.Player.OnSpawn += OnPlayerSpawn;
+            On.Celeste.Level.LoadLevel += Q.Level_LoadLevel;
             using (new DetourContext { Before = new() { "CelesteTAS" } }) {
                 On.Monocle.Scene.AfterUpdate += HookSceneAfterUpdate;
             }
-            using (new DetourContext { Before = new() { "CelesteTAS" } }) {
+            using (new DetourContext { After = new() { "CelesteTAS" } }) {
                 On.Monocle.MInput.Update += HookMInputUpdate;
             }
 
             //IL.Celeste.Player.Update += Player_Update;
-        }
-
-        public override void Unload() {
-            //Engine.Commands?.Log("unloaded MiscUtils");
-            On.Celeste.LevelLoader.ctor -= LevelLoader_ctor;
-            On.Celeste.OverworldLoader.ctor -= OverworldLoader_ctor;
-
-            // TODO: unapply any hooks applied in Load()
-            On.Celeste.Level.Update -= HookLevelUpdate;
-            Everest.Events.Player.OnSpawn -= OnPlayerSpawn;
-            On.Monocle.Scene.AfterUpdate -= HookSceneAfterUpdate;
-            On.Monocle.MInput.Update -= HookMInputUpdate;
         }
 
         //private void Player_Update(MonoMod.Cil.ILContext il) {

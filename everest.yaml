@@ -4,3 +4,5 @@
   Dependencies:
     - Name: EverestCore
       Version: 1.4465.0
+    - Name: CelesteTAS
+      Version: 3.38.2
